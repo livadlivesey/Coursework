@@ -1,0 +1,1327 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "name": "NLEassignment1.ipynb",
+      "provenance": [],
+      "collapsed_sections": [],
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/livadlivesey/Coursework/blob/main/NLE_1\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "f2S8I2ny-ovS"
+      },
+      "source": [
+        "# NLE Assignment 1: Books vs DVDs\n",
+        "\n",
+        "In this assignment, you will be investigating NLP methods for distinguishing reviews written about books from reviews written about DVDs.\n",
+        "\n",
+        "For assessment, you are expected to complete and submit this notebook file.  When answers require code, you may import and use library functions (unless explicitly told otherwise).  All of your own code should be included in the notebook rather than imported from elsewhere.  Written answers should also be included in the notebook.  You should insert as many extra cells as you want and change the type between code and markdown as appropriate.\n",
+        "\n",
+        "In order to avoid misconduct, you should not talk about the assignment questions with your peers.  If you are not sure what a question is asking you to do or have any other questions, please ask me or one of the Teaching Assistants.\n",
+        "\n",
+        "Marking guidelines are provided as a separate document.\n",
+        "\n",
+        "The first few cells contain code to set-up the assignment and bring in some data.   In order to provide unique datasets for analysis by different students, you must enter your candidate number in the following cell.  Otherwise do not change the code in these cells."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "1gXQAZas-l9c"
+      },
+      "source": [
+        "candidateno=215865 #this MUST be updated to your candidate number so that you get a unique data sample\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "xXshmwtaBTGm",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 34
+        },
+        "outputId": "c4bde39d-9de3-4ce2-e817-e55f016f9f6b"
+      },
+      "source": [
+        "#set up drives for resources.  Change the path as necessary\n",
+        "\n",
+        "from google.colab import drive\n",
+        "#mount google drive\n",
+        "drive.mount('/content/drive/')\n",
+        "import sys\n",
+        "sys.path.append('/content/drive/My Drive/Colab Notebooks/resources/')\n"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Mounted at /content/drive/\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "nk8JTP88A8vs",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 102
+        },
+        "outputId": "1d8ebafd-41e1-48df-c0ab-5050a3bd7891"
+      },
+      "source": [
+        "#do not change the code in this cell\n",
+        "#preliminary imports\n",
+        "\n",
+        "#for setting up training and testing data\n",
+        "from sussex_nltk.corpus_readers import AmazonReviewCorpusReader\n",
+        "import random\n",
+        "\n",
+        "#set up nltk\n",
+        "import nltk\n",
+        "nltk.download('punkt')\n",
+        "nltk.download('stopwords')\n",
+        "from nltk.corpus import stopwords\n",
+        "from nltk.tokenize import word_tokenize\n",
+        "\n",
+        "#useful other tools\n",
+        "import re\n",
+        "import pandas as pd\n",
+        "import matplotlib.pyplot as plt\n",
+        "# %matplotlib inline\n",
+        "from itertools import zip_longest\n"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Sussex NLTK root directory is /content/drive/My Drive/Colab Notebooks/resources\n",
+            "[nltk_data] Downloading package punkt to /root/nltk_data...\n",
+            "[nltk_data]   Unzipping tokenizers/punkt.zip.\n",
+            "[nltk_data] Downloading package stopwords to /root/nltk_data...\n",
+            "[nltk_data]   Unzipping corpora/stopwords.zip.\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "BHBkzAccCVaZ"
+      },
+      "source": [
+        "#do not change the code in this cell\n",
+        "def split_data(data, ratio=0.7): # when the second argument is not given, it defaults to 0.7\n",
+        "    \"\"\"\n",
+        "    Given corpus generator and ratio:\n",
+        "     - partitions the corpus into training data and test data, where the proportion in train is ratio,\n",
+        "\n",
+        "    :param data: A corpus generator.\n",
+        "    :param ratio: The proportion of training documents (default 0.7)\n",
+        "    :return: a pair (tuple) of lists where the first element of the \n",
+        "            pair is a list of the training data and the second is a list of the test data.\n",
+        "    \"\"\"\n",
+        "    \n",
+        "    data = list(data)  \n",
+        "    n = len(data)  \n",
+        "    train_indices = random.sample(range(n), int(n * ratio))          \n",
+        "    test_indices = list(set(range(n)) - set(train_indices))    \n",
+        "    train = [data[i] for i in train_indices]           \n",
+        "    test = [data[i] for i in test_indices]             \n",
+        "    return (train, test)                       \n",
+        " \n",
+        "\n",
+        "def feature_extract(review):\n",
+        "    \"\"\"\n",
+        "    Generate a feature representation for a review\n",
+        "    :param review: AmazonReview object\n",
+        "    :return: dictionary of Boolean features\n",
+        "    \"\"\"\n",
+        "    return {word:True for word in review.words()}\n",
+        "\n",
+        "def get_training_test_data(categories=('book','dvd'),ratio=0.7,seed=candidateno):\n",
+        "    \"\"\"\n",
+        "    Get training and test data for a given pair of categories and ratio, pre-formatted for use with NB classifier\n",
+        "    :param category: pair of categories of review corpus, two from [\"kitchen, \"dvd, \"book\", \"electronics\"]\n",
+        "    :param ratio: proportion of data to use as training data\n",
+        "    :return: pair of lists \n",
+        "    \"\"\"\n",
+        "    random.seed(candidateno)\n",
+        "\n",
+        "    train_data=[]\n",
+        "    test_data=[]\n",
+        "    for category in categories:\n",
+        "      reader=AmazonReviewCorpusReader().category(category)    \n",
+        "      train, test = split_data(reader.documents(),ratio=ratio)\n",
+        "   \n",
+        "      train_data+=[(feature_extract(review),category)for review in train]\n",
+        "      test_data+=[(feature_extract(review),category)for review in test]\n",
+        "    random.shuffle(train_data)\n",
+        "    random.shuffle(test_data)\n",
+        "\n",
+        "    return train_data,test_data"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "1N3LWwBYICPP"
+      },
+      "source": [
+        "When you have run the cell below, your unique training and testing samples will be stored in `training_data` and `testing_data`"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "HJLegkdPFUJA",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 122
+        },
+        "outputId": "c26a9bb2-f95a-4068-c80e-43f8f6003f0e"
+      },
+      "source": [
+        "#do not change the code in this cell\n",
+        "training_data,testing_data=get_training_test_data()\n",
+        "print(\"The amount of training data is {}\".format(len(training_data)))\n",
+        "print(\"The amount of testing data is {}\".format(len(testing_data)))\n",
+        "print(\"The representation of a single data item is below\")\n",
+        "print(training_data[0])\n",
+        "print(testing_data[0])"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "The amount of training data is 6526\n",
+            "The amount of testing data is 2799\n",
+            "The representation of a single data item is below\n",
+            "({'Clint': True, 'Eastwood': True, \"'s\": True, '``': True, 'The': True, 'Eiger': True, 'Sanction': True, 'was': True, 'made': True, 'in': True, '1975': True, 'and': True, ',': True, 'at': True, 'that': True, 'time': True, 'an': True, 'excellent': True, 'action': True, 'thriller': True, '.': True, 'Viewing': True, 'it': True, 'again': True, 'recently': True, 'I': True, 'surprised': True, 'how': True, 'well': True, 'has': True, 'held': True, 'up': True, 'This': True, 'is': True, 'due': True, 'mostly': True, 'to': True, 'the': True, 'location': True, 'shoots': True, '-': True, 'filmed': True, 'Monument': True, 'Valley': True, 'Swiss': True, 'Alps': True, 'instead': True, 'of': True, 'on': True, 'a': True, 'Hollywood': True, 'soundstage': True, 'These': True, 'guys': True, 'really': True, 'went': True, 'there': True, 'those': True, 'climbing': True, 'sequences': True, 'for': True, 'real': True, '(': True, 'including': True, 'star': True, 'director': True, 'who': True, 'about': True, '45': True, ')': True, 'just': True, 'ca': True, \"n't\": True, 'be': True, 'faked': True, 'spy': True, 'story': True, 'also': True, 'pretty': True, 'good': True, 'supporting': True, 'performance': True, 'by': True, 'Jack': True, 'Cassidy': True, 'Vonetta': True, 'McGee': True, 'George': True, 'Kennedy': True, 'lend': True, 'solid': True, 'support': True, 'Also': True, 'John': True, 'Williams': True, \"'\": True, 'pre-Star': True, 'Wars': True, 'score': True, 'hauntingly': True, 'jazzy': True, 'suspenseful': True, 'Check': True, 'this': True, 'one': True, 'out': True}, 'dvd')\n",
+            "({'Without': True, 'the': True, 'generosity': True, 'and': True, 'support': True, 'of': True, 'comedian': True, 'Roscoe': True, '``': True, 'Fatty': True, 'Arbuckle': True, ',': True, 'cinematic': True, 'art': True, 'Buster': True, 'Keaton': True, 'may': True, 'never': True, 'have': True, 'blossomed': True, '.': True, 'The': True, '12': True, 'existing': True, 'shorts': True, 'in': True, 'Best': True, 'Arbuckle/Keaton': True, 'Collection': True, 'display': True, \"'s\": True, 'comedic': True, 'skill': True, 'while': True, 'revealing': True, 'astonishing': True, 'speed': True, 'which': True, 'co-star': True, 'mastered': True, 'medium': True, 'After': True, '15': True, 'two-reelers': True, 'from': True, '1917': True, 'to': True, '1920': True, 'was': True, 'ready': True, 'fly': True, 'solo': True, 'with': True, 'a': True, 'remarkable': True, 'string': True, 'masterpieces': True, 'Sadly': True, 'subsequent': True, 'career': True, 'features': True, 'unjustly': True, 'destroyed': True, 'by': True, '1921': True, 'scandal': True, 'yet': True, 'he': True, 'persevered': True, 'made': True, 'an': True, 'all-too-brief': True, 'comeback': True, 'before': True, 'his': True, 'untimely': True, 'death': True, '1933': True, 'Admittedly': True, 'not': True, 'all': True, 'Arbuckle-Keaton': True, 'are': True, 'gems': True, 'but': True, 'Butcher': True, 'Boy': True, '(': True, ')': True, 'Back': True, 'Stage': True, '1919': True, 'Garage': True, 'remain': True, 'memorable': True, 'comedies': True, 'that': True, 'showcase': True, 'effortless': True, 'rapport': True, 'Despite': True, 'some': True, 'unfortunate': True, 'racial': True, 'humor': True, 'Out': True, 'West': True, '1918': True, 'is': True, 'wild': True, 'fast-paced': True, 'romp': True, 'satirizes': True, 'Westerns': True, 'William': True, 'S.': True, 'Hart': True, 'Though': True, 'prints': True, 'vary': True, 'quality': True, 'one': True, 'must': True, 'be': True, 'grateful': True, 'they': True, 'exist': True, 'at': True, 'represents': True, 'valuable': True, 'chapter': True, 'history': True, 'film': True, 'comedy': True}, 'dvd')\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "5f6h0ON9I4NT"
+      },
+      "source": [
+        "1) Use your training data to find\n",
+        "a) the top 20 words which occur more frequently in book reviews than in dvd reviews\n",
+        "b) the top 20 words which occur more frequently in dvd reviews than book reviews\n",
+        "Discuss what pre-processing techniques you have applied (or not applied) in answering this question, and why. [20%]"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "ACyRWvvZt-54"
+      },
+      "source": [
+        "To pre-process the training data, I case normalised the words so that words with the same characters in the same sequence, will be counted as the same word for the word count. Lowering the case also allows the removal of stopwords which have capitalizations in the original data. \n",
+        "I decided to remove the stopwords as this significantly reduces the size of the data, and allows for a more meaningful comparison between the words in the book and dvd data. \n",
+        "I decided not to use stemming or lemmatization to save processing time."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "1haUtqGXnwWZ"
+      },
+      "source": [
+        "stop = set(stopwords.words('english'))\n",
+        "import collections\n",
+        "import math\n",
+        "from nltk.probability import FreqDist\n",
+        "\n",
+        "def normalise(data):  \n",
+        "  normalised =[] #Create a list for the normalised training data\n",
+        "\n",
+        "  for (dictionary,label) in data: #Iterate through the tuples in the training data\n",
+        "    lowered = {} #Create a dictionary for the lowered \n",
+        "    for (k,v) in dictionary.items(): #Iterate though the key,value pairs in the dictionary\n",
+        "      if k.isalpha() and not k.lower() in stop: #If the key is alphabetic and not a stopword, add the lowered entry to lowered dictionary\n",
+        "       lowered[k.lower()] = v \n",
+        "\n",
+        "    normalised.append((lowered, label)) #Add each of the lowered entries to the list 'normalised'\n",
+        "  return normalised\n",
+        "\n",
+        "normalised_train = normalise(training_data)\n",
+        "\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "muHAF98WZHBJ"
+      },
+      "source": [
+        "def seperate_data(data):\n",
+        "  dvd = [] #Create a list for the dvd training data\n",
+        "  book = []#Create a list for the book training data\n",
+        "  for i in range(len(data)): #Iterate through the entries in the normalised and lowered data\n",
+        "    if data[i][1] == \"book\": #If the label for the entry is \"book\", add the words from the entry to the book data\n",
+        "      book += data[i][0].keys()\n",
+        "      \n",
+        "    if data[i][1] == \"dvd\":  #If the label for the entry is \"dvd\", add the words from the entry to the dvd data  \n",
+        "      dvd += data[i][0].keys()   \n",
+        "  return dvd, book\n",
+        "\n",
+        "dvd_train, book_train = seperate_data(normalised_train) #Seperate the training data into lists for each of the categories\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "LwR8PY1djPh4"
+      },
+      "source": [
+        "def seperate_test_data(data):\n",
+        "  dvd = [] #Create a list for the dvd test data\n",
+        "  book = [] #Create a list for the book test data\n",
+        "  for i in range(len(data)): #Iterate through the test data\n",
+        "    if data[i][1] == \"book\": #If the label for an entry is \"book\", add the entry to the book testing data\n",
+        "      book.append(data[i])\n",
+        "    if data[i][1] == \"dvd\": #If the label for an entry is \"dvd\", add the entry to the dvd testing data\n",
+        "      dvd.append(data[i])\n",
+        "  return dvd, book\n",
+        "\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "xOCCcZDOKirm",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 71
+        },
+        "outputId": "393e646e-fe58-4a45-ad37-e91155154251"
+      },
+      "source": [
+        "def most_frequent_words(freq1, freq2, k):\n",
+        "  difference = [(w, f-freq2.get(w, 0)) for (w,f) in freq1.most_common()] #Create a list of tuples, where the first item is the word, and the second is the difference in frequency for that word\n",
+        "  sorteddiff = sorted(difference, key=lambda pair:pair[1], reverse=True) #Sort the list into descending order\n",
+        "  normalised=[w.lower() for (w,f) in sorteddiff] \n",
+        "  filtered=[w for w in normalised if w.isalpha() and w not in stop] #Remove the number count for each word, check all words are alphabetic and do not include stopwords\n",
+        "  return filtered[:k] #Return the top 20 tuples in the list\n",
+        "\n",
+        "dvdfreq = FreqDist(dvd_train) #Create a freq dist given the dvd data\n",
+        "bookfreq = FreqDist(book_train) #Create a freq dist given the book data\n",
+        "\n",
+        "\n",
+        "print(most_frequent_words(dvdfreq, bookfreq, 20))\n",
+        "print(most_frequent_words(bookfreq, dvdfreq, 20))"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "['movie', 'film', 'dvd', 'watch', 'one', 'see', 'like', 'great', 'movies', 'good', 'seen', 'watching', 'love', 'get', 'films', 'really', 'show', 'scenes', 'acting', 'best']\n",
+            "['book', 'read', 'books', 'reading', 'author', 'reader', 'written', 'writing', 'pages', 'information', 'novel', 'page', 'readers', 'chapter', 'authors', 'novels', 'research', 'chapters', 'ideas', 'published']\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "C1cOLSAKNHc9"
+      },
+      "source": [
+        "(a) The top 20 words which occur more frequently in book reviews than in dvd reviews are: book, read, books, reading, author, reader, written , writing, pages, information, novel, page, readers, chapter, authors, novels, research, chapters, ideas, published\n",
+        "\n",
+        "\n",
+        "(b) The top 20 words which occur more frequently in dvd reviews than in book reviews are: movie, film, dvd, watch, one, see, like, great, movies, good, seen, watching, love, get, films, really, show, scenes, acting, best"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "TApOQE6vND20"
+      },
+      "source": [
+        "2) Design, build and test a word list classifier to classify reviews as being from the book domain or from the dvd domain.  Make sure you discuss 1) how you decide the lengths and contents of the word lists and ii) accuracy, precision and recall of your final classifier.[30%]"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "HyPivenT9oLM"
+      },
+      "source": [
+        "i) To decide the contents of the word lists, I used the most_frequent_words method, which finds the top 'k' more frequent words from each class, book or dvd. This means that words which may appear very frequently in both classes, but are not related to the class, are not used as identifiers for either class. I chose a word list length of 10 because this produced pretty reasonable scores for accuracy, precision, recall and F1 score, without a long running time. \n",
+        "\n",
+        "ii) The accuracy, precision, recall is shown by running the last cell of this question. The high numbers calculated by the confusion matrix, show a small proportion of false positives and false negatives when classifying a document into 'book' or 'dvd' categories, showing the word list classifier built is pretty effective. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "BThDMrcmODJy"
+      },
+      "source": [
+        "from nltk.classify.api import ClassifierI\n",
+        "import random\n",
+        "\n",
+        "class SimpleClassifier(ClassifierI): \n",
+        "\n",
+        "    def __init__(self, book, dvd): #The classifier is initialised with a list of words labelled 'book' and a list labelled 'dvd'\n",
+        "        self._book = book \n",
+        "        self._dvd = dvd \n",
+        "\n",
+        "    def classify(self, review): #Classify method takes a review to be classified. A positive score indicates the review is about Books, a negative score indicates the review is about DVDs\n",
+        "        score = 0 \n",
+        "        \n",
+        "        for word in review.keys(): #Iterate through the list of words given \n",
+        "          if word in self._book: \n",
+        "            score+=1 #If the current word in the list to be classified is found in the list of labelled 'book data', add one. \n",
+        "          if word in self._dvd: \n",
+        "            score-=1 #If the current word in the list to be classified is found in the list of labelled 'dvd' data, subtract one\n",
+        "        \n",
+        "        if score < 0: return \"dvd\" \n",
+        "        if score > 0: return \"book\"\n",
+        "        if score == 0: return (random.choice([\"dvd\", \"book\"])) #If the score is 0, either label is selected randomly\n",
+        "\n",
+        "    def batch_classify(self, reviews): \n",
+        "        return [self.classify(review.words() if hasattr(review, 'words') else review) for review in reviews]\n",
+        "\n",
+        "    def labels(self): \n",
+        "        return (\"book\", \"dvd\")\n",
+        "\n",
+        "\n",
+        "class SimpleClassifier2(SimpleClassifier): #Another class of classifier which inherits from the previous classifier, but takes an additional parameter k, which defines the length of the word list to classify\n",
+        "\n",
+        "    def __init__(self, k):\n",
+        "        self._k=k\n",
+        "\n",
+        "    def train(self, book_training, dvd_training):\n",
+        "        book_freqdist=FreqDist(book_training) #Create a frequency distribution for the training data labelled book\n",
+        "        dvd_freqdist=FreqDist(dvd_training) #Create a frequency distribution for the training data labelled dvd\n",
+        "        self._book=most_frequent_words(book_freqdist, dvd_freqdist, self._k) #Assign the top k most frequent words from book over dvd to the book word list\n",
+        "        self._dvd=most_frequent_words(dvd_freqdist, book_freqdist, self._k) #Assign the top k most frequent words from dvd over book to the dvd word list\n",
+        "      \n",
+        "      \n",
+        "\n",
+        "\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "8DVoLlwD3Wjt"
+      },
+      "source": [
+        "def classifier_evaluate(classifier,test_data):\n",
+        "    \n",
+        "    docs,goldstandard=zip(*test_data) #Convert the list of pairs of words and labels, into a pair of lists, where the index of each list corresponds to the index in the other\n",
+        "    predictions=classifier.batch_classify(docs) #Batch classify all the documents\n",
+        "    #print(predictions)\n",
+        "    correct=0\n",
+        "    for (prediction,gold) in zip(predictions,goldstandard): #Iterate through the lists, checking if the prediction matches the given label (goldstandard)\n",
+        "        if prediction ==gold:\n",
+        "            correct+=1 #Add 1 for each accurate prediction\n",
+        "    return correct/len(test_data) #Find the proportion of accurate predictions\n",
+        "\n",
+        "class ConfusionMatrix:\n",
+        "  def __init__(self, predictions, goldstandard, classes=(\"dvd\",\"book\")):\n",
+        "\n",
+        "    (self.c1,self.c2)=classes\n",
+        "    self.TP=0\n",
+        "    self.FP=0\n",
+        "    self.FN=0\n",
+        "    self.TN=0\n",
+        "    for (prediction,gold) in zip(predictions,goldstandard):\n",
+        "        if gold==self.c1:\n",
+        "            if prediction==self.c1:\n",
+        "                self.TP+=1\n",
+        "            else:\n",
+        "                self.FN+=1\n",
+        "        \n",
+        "        elif prediction==self.c1:\n",
+        "            self.FP+=1\n",
+        "        else:\n",
+        "            self.TN+=1\n",
+        "        \n",
+        "    \n",
+        "  def precision(self):\n",
+        "    \n",
+        "    p = self.TP / (self.TP + self.FP)\n",
+        "    \n",
+        "    return p\n",
+        "  \n",
+        "  def recall(self):\n",
+        "    r= self.TP / (self.TP + self.FN)\n",
+        "    \n",
+        "    return r\n",
+        "  \n",
+        "  def f1(self):\n",
+        "    f1= 2 * (precision * recall ) / (precision + recall )\n",
+        "      \n",
+        "    return f1 \n",
+        "\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "LiaeYjhB3ZqG",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 51
+        },
+        "outputId": "ef3a96ca-2d4e-48ff-fd0e-d05122b0ae48"
+      },
+      "source": [
+        "normalised_test = normalise(testing_data)\n",
+        "dvd_test, book_test = seperate_test_data(normalised_test)\n",
+        "test_data=dvd_test+book_test\n",
+        "\n",
+        "\n",
+        "test_classifier = SimpleClassifier2(10)\n",
+        "test_classifier.train(book_train, dvd_train)\n",
+        "accuracy = classifier_evaluate(test_classifier, test_data)\n",
+        "#print(accuracy)\n",
+        "\n",
+        "docs,labels = zip(*testing_data)\n",
+        "sent_cm=ConfusionMatrix(test_classifier.batch_classify(docs), labels)\n",
+        "precision = sent_cm.precision()\n",
+        "recall = sent_cm.recall()\n",
+        "f1score = sent_cm.f1()\n",
+        "\n",
+        "#print(precision)\n",
+        "#print(recall)\n",
+        "#print(f1score)\n",
+        "\n",
+        "import pandas as pd\n",
+        "\n",
+        "data = {'Accuracy':  [accuracy],\n",
+        "        'Precision': [precision],\n",
+        "        'Recall': [recall],\n",
+        "        'F1 Score': [f1score],   \n",
+        "        }\n",
+        "\n",
+        "df = pd.DataFrame (data, columns = ['Accuracy','Precision','Recall', 'F1 Score'], index = ['Word List Classifier'])\n",
+        "\n",
+        "print (df)\n"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "                      Accuracy  Precision    Recall  F1 Score\n",
+            "Word List Classifier   0.85602   0.831956  0.916262  0.872076\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "LIS9UpmJNEAp"
+      },
+      "source": [
+        "3) Compare the performance of your word list classifier with a Naive Bayes classifier (e.g., from NLTK).  Make sure you discuss the results. [20%]"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "EqkuSXZx-SSm"
+      },
+      "source": [
+        "For the Naive Bayes classifier, I used the one developed in the labs as I was more familiar with it. Unsurprisingly, the NB classifier had higher precision, recall, accuracy, and F1 score compared to a simple word list classifier. This is because it uses probability to decide whether a certain document is in either the 'book' or 'dvd' category, rather than using words that have been seen before to classify.\n",
+        "However, despite NB Classifier showing higher scores in all 4 measures of performance, it is important to note that the word list classifier is still pretty effective, achieving higher than 0.8 for accuracy, precision, recall and f1. This means that out of the predictions made by the classifier, a high proportion are correct (true positives or true negatives)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "3YUiYKyrOSA0"
+      },
+      "source": [
+        "class NBClassifier:\n",
+        "    \n",
+        "    def __init__(self):\n",
+        "        \n",
+        "        pass\n",
+        "    \n",
+        "    def _set_known_vocabulary(self,training_data):\n",
+        "        \n",
+        "        known=[]\n",
+        "        for doc,label in training_data:\n",
+        "            known+=list(doc.keys())\n",
+        "        self.known= set(known)\n",
+        "    \n",
+        "    def _set_priors(self,training_data):\n",
+        "        \n",
+        "        priors={}\n",
+        "        for (doc,label) in training_data:\n",
+        "            priors[label]=priors.get(label,0)+1\n",
+        "        total=sum(priors.values())\n",
+        "        for key,value in priors.items():\n",
+        "            priors[key]=value/total\n",
+        "        self.priors=priors\n",
+        "        \n",
+        "    def _set_cond_probs(self,training_data):       \n",
+        "        conds={}\n",
+        "        for(doc,label) in training_data:\n",
+        "            classcond=conds.get(label,{})\n",
+        "            for word in doc.keys():\n",
+        "                classcond[word]=classcond.get(word,0)+1\n",
+        "        \n",
+        "            conds[label]=classcond\n",
+        "    \n",
+        "        for label, classcond in conds.items():\n",
+        "            for word in self.known:\n",
+        "        \n",
+        "                classcond[word]=classcond.get(word,0)+1\n",
+        "            conds[label]=classcond\n",
+        "            \n",
+        "        for label,dist in conds.items():\n",
+        "            total=sum(dist.values())\n",
+        "            conds[label]={key:value/total for (key,value) in dist.items()}\n",
+        "        \n",
+        "        self.conds=conds\n",
+        "    \n",
+        "    def train(self,training_data):\n",
+        "        self._set_known_vocabulary(training_data)\n",
+        "        self._set_priors(training_data)\n",
+        "        self._set_cond_probs(training_data)\n",
+        "    \n",
+        "    def classify(self,doc):\n",
+        "        \n",
+        "        doc_probs={key:math.log(value) for (key,value) in self.priors.items()}\n",
+        "        for word in doc.keys():\n",
+        "            if word in self.known:\n",
+        "                doc_probs={classlabel:sofar+math.log(self.conds[classlabel].get(word,0)) for (classlabel,sofar) in doc_probs.items()}\n",
+        "\n",
+        "        highprob=max(doc_probs.values())\n",
+        "        classes=[c for c in doc_probs.keys() if doc_probs[c]==highprob]\n",
+        "        return random.choice(classes)\n",
+        "    \n",
+        "    def batch_classify(self,docs):\n",
+        "        return [self.classify(doc) for doc in docs]\n",
+        " "
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "x5OkeMGN7zMY"
+      },
+      "source": [
+        "nb_classifier = NBClassifier()\n",
+        "nb_classifier.train(training_data)\n",
+        "nb_accuracy = classifier_evaluate(nb_classifier, testing_data)\n",
+        "\n",
+        "nb_cm = ConfusionMatrix(nb_classifier.batch_classify(docs), labels)\n",
+        "nb_precision = nb_cm.precision()\n",
+        "nb_recall = nb_cm.recall()\n",
+        "nb_f1score = 2 * (nb_precision * nb_recall) / (nb_precision + nb_recall) \n",
+        "\n",
+        "\n",
+        "\n",
+        "\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "ee8_NzW-7zQ8",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 68
+        },
+        "outputId": "591a0cda-c340-433c-b016-87d858bdd3a5"
+      },
+      "source": [
+        "data = {'Accuracy':  [accuracy, nb_accuracy],\n",
+        "        'Precision': [precision, nb_precision],\n",
+        "        'Recall': [recall, nb_recall],\n",
+        "        'F1 Score': [f1score, nb_f1score],   \n",
+        "        }\n",
+        "\n",
+        "df = pd.DataFrame (data, columns = ['Accuracy','Precision','Recall', 'F1 Score'], index = ['Word List Classifier', 'Naive Bayes Classifier'])\n",
+        "\n",
+        "print (df)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "                        Accuracy  Precision    Recall  F1 Score\n",
+            "Word List Classifier    0.856020   0.831956  0.916262  0.872076\n",
+            "Naive Bayes Classifier  0.929618   0.919122  0.965413  0.941699\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "LGDXaVDqOSfY"
+      },
+      "source": [
+        "4) Design and carry out an experiment into the impact of the amount of training data on each of these classifiers.  Make sure you describe design decisions in your experiment, include a graph of your results and discuss your conclusions. [30%] "
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "-XE4iPI-Gz5G"
+      },
+      "source": [
+        "First we need a word list classifier which takes data in the same format as the Naive Bayes classifier so that we can easily compare them. Then, using a range of sample sizes for the training data and generating a new sample for each time, we can calculate the accuracy, precision and recall for the two classifiers, NB and Word List, and find an average of these scores. \n",
+        "\n",
+        "When doing this last question, I have noticed that suddenly the scores for the word list classifier are drastically lower than in other questions. I have tried to find the source of this error but have not been able to. Therefore I have tried to show that I understand the intent of this question, how to calculate, compare and display the results of the precision, recall and accuracy in a suitable way. \n",
+        "\n",
+        "From the results I do have, the precision and accuracy of the Naive Bayes classifier very quickly increases with the amount of training data, whereas the Word List classifier doesnt show much increase with the training data. I think this is because where the WLC has more words, more of these are likely to be used in other categories of reviews, whereas NB uses the higher training sample to find the probabilities of words being in a certain category, and hence is more likely to correctly predict the class of a document. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "W9HGx26SGyRH"
+      },
+      "source": [
+        "from functools import reduce\n",
+        "class WordListClassifier(SimpleClassifier):\n",
+        "    #this WordListClassifier uses the same feature representation as the NB classifier\n",
+        "    #i.e., a multivariate Bernouilli event model where multiple occurrences of the same word in the same document are not counted.\n",
+        "        \n",
+        "    def __init__(self,k):\n",
+        "        self._labels=[\"book\",\"dvd\"]\n",
+        "        self.k=k\n",
+        "        \n",
+        "    def get_all_words(self,docs):\n",
+        "        return reduce(lambda words,doc: words + list(doc.keys()), docs, [])\n",
+        "    \n",
+        "    def train(self,training_data):\n",
+        "        book_train=[doc for (doc,label) in normalise(training_data) if label == self.labels()[0]]\n",
+        "        dvd_train=[doc for (doc,label) in normalise(training_data) if label == self.labels()[1]]\n",
+        "        \n",
+        "        book_freqdist=FreqDist(self.get_all_words(book_train))\n",
+        "        dvd_freqdist=FreqDist(self.get_all_words(dvd_train))\n",
+        "        \n",
+        "        self._book=most_frequent_words(book_freqdist, dvd_freqdist, self.k)\n",
+        "        self._dvd=most_frequent_words(book_freqdist, dvd_freqdist, self.k)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "HgXiP6We70j0",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 526
+        },
+        "outputId": "fbc2f679-fa0f-45b9-9560-e92cdce55282"
+      },
+      "source": [
+        "word_list_size = 50\n",
+        "classifiers={\"Word List\":WordListClassifier(word_list_size),\n",
+        "             \"Naive Bayes\":NBClassifier()}\n",
+        "use=[\"Word List\",\"Naive Bayes\"]\n",
+        "number_of_runs=3\n",
+        "\n",
+        "results={}\n",
+        "for key in classifiers.keys():\n",
+        "  results[key]=0\n",
+        "\n",
+        "for i in range(number_of_runs):\n",
+        "  training,testing=get_training_test_data()\n",
+        "\n",
+        "  for name,classifier in classifiers.items():\n",
+        "    if name in use:\n",
+        "      classifier.train(training)\n",
+        "      accuracy=classifier_evaluate(classifier,testing)\n",
+        "      print(\"The accuracy of {} classifier is {}\".format(name,accuracy))\n",
+        "      results[name]=results[name]+(accuracy/number_of_runs)\n",
+        "\n",
+        "    \n",
+        "\n",
+        "df = pd.DataFrame(list(results.items()))\n",
+        "display(df)\n",
+        "ax = df.plot.bar(title=\"Experimental Results\",legend=False,x=0)\n",
+        "ax.set_ylabel(\"Classifier Accuracy\")\n",
+        "ax.set_xlabel(\"Classifier\")\n",
+        "ax.set_ylim(0,1.0)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "The accuracy of Word List classifier is 0.49446230796713114\n",
+            "The accuracy of Naive Bayes classifier is 0.9296177206145052\n",
+            "The accuracy of Word List classifier is 0.49446230796713114\n",
+            "The accuracy of Naive Bayes classifier is 0.9296177206145052\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>0</th>\n",
+              "      <th>1</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>Word List</td>\n",
+              "      <td>0.494462</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>Naive Bayes</td>\n",
+              "      <td>0.929618</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "             0         1\n",
+              "0    Word List  0.494462\n",
+              "1  Naive Bayes  0.929618"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "(0.0, 1.0)"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 57
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "image/png": "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\n",
+            "text/plain": [
+              "<Figure size 432x288 with 1 Axes>"
+            ]
+          },
+          "metadata": {
+            "tags": [],
+            "needs_background": "light"
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "6ypOi_c-70p_",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 560
+        },
+        "outputId": "cf5a58c2-fdb1-4c36-86eb-49406e6159dd"
+      },
+      "source": [
+        "word_list_size = 100\n",
+        "classifiers={\"Word List\":WordListClassifier(word_list_size),\n",
+        "             \"Naive Bayes\":NBClassifier()}\n",
+        "use=[\"Word List\",\"Naive Bayes\"]\n",
+        "number_of_runs=3\n",
+        "\n",
+        "results={} #Empty list for the results\n",
+        "for key in classifiers.keys(): \n",
+        "  results[key]=0\n",
+        "\n",
+        "for i in range(number_of_runs): \n",
+        "  training,testing=get_training_test_data() #For each run, create a new sample of data\n",
+        "\n",
+        "  for name,classifier in classifiers.items(): #Iterate through the classifier items\n",
+        "    if name in use:\n",
+        "      classifier.train(training) #Train each classifier\n",
+        "      senti_cm=ConfusionMatrix(classifier.batch_classify(docs),labels) #Create a confusion matrix for the current classifier\n",
+        "      print(\"The precision of {} classifier is {}\".format(name,senti_cm.precision())) #Calculate the precision of the classifier\n",
+        "      results[name]=results[name]+(senti_cm.precision()/number_of_runs) #Add the result to the list of results\n",
+        "\n",
+        "    \n",
+        "\n",
+        "df = pd.DataFrame(list(results.items())) #Display the results\n",
+        "display(df)\n",
+        "ax = df.plot.bar(title=\"Experimental Results\",legend=False,x=0)\n",
+        "ax.set_ylabel(\"Classifier Precision\")\n",
+        "ax.set_xlabel(\"Classifier\")\n",
+        "ax.set_ylim(0,1.0)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "The precision of Word List classifier is 0.5847578347578347\n",
+            "The precision of Naive Bayes classifier is 0.9191218948584633\n",
+            "The precision of Word List classifier is 0.5847578347578347\n",
+            "The precision of Naive Bayes classifier is 0.9191218948584633\n",
+            "The precision of Word List classifier is 0.5847578347578347\n",
+            "The precision of Naive Bayes classifier is 0.9191218948584633\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>0</th>\n",
+              "      <th>1</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>Word List</td>\n",
+              "      <td>0.584758</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>Naive Bayes</td>\n",
+              "      <td>0.919122</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "             0         1\n",
+              "0    Word List  0.584758\n",
+              "1  Naive Bayes  0.919122"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "(0.0, 1.0)"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 47
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "image/png": "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\n",
+            "text/plain": [
+              "<Figure size 432x288 with 1 Axes>"
+            ]
+          },
+          "metadata": {
+            "tags": [],
+            "needs_background": "light"
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "FEFj6xr570sf",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 323
+        },
+        "outputId": "8d02c51d-2634-48f6-c39c-18463b056275"
+      },
+      "source": [
+        "from random import sample\n",
+        "word_list_size = 100\n",
+        "classifiers={\"Word List\":WordListClassifier(word_list_size),\n",
+        "             \"Naive Bayes\":NBClassifier()}\n",
+        "use=[\"Word List\",\"Naive Bayes\"]\n",
+        "sample_sizes=[1,50,500]\n",
+        "number_of_runs=2\n",
+        "\n",
+        "results=[]\n",
+        "\n",
+        "\n",
+        "for size in sample_sizes: #Use different sample sizes to evaluate the classifiers, for each of these sample sizes\n",
+        "  for i in range(number_of_runs): #For runs\n",
+        "    training,testing=get_training_test_data() #Get a new sample\n",
+        "    training_sample=sample(training,size) #Randomise the sample\n",
+        "    res=[]\n",
+        "    for name,classifier in classifiers.items(): #For each classifier\n",
+        "      \n",
+        "      if name in use: #If the name in the classifier list\n",
+        "        classifier.train(training_sample) #Train classifier\n",
+        "        accuracy=classifier_evaluate(classifier,testing) #Evaluate the accuracy\n",
+        "        print(\"The accuracy of {} classifier with training sample size {} is {}\".format(name,size, accuracy))\n",
+        "        res.append(accuracy) #Add the accuracy to list of results\n",
+        "    results.append([size]+res) #Add the result along with the sample size for each results to final results\n",
+        "\n",
+        "    \n",
+        "results"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "The accuracy of Word List classifier with training sample size 1 is 0.4841014648088603\n",
+            "The accuracy of Naive Bayes classifier with training sample size 1 is 0.41121829224723117\n",
+            "The accuracy of Word List classifier with training sample size 1 is 0.4841014648088603\n",
+            "The accuracy of Naive Bayes classifier with training sample size 1 is 0.41121829224723117\n",
+            "The accuracy of Word List classifier with training sample size 50 is 0.49231868524473027\n",
+            "The accuracy of Naive Bayes classifier with training sample size 50 is 0.6780993211861379\n",
+            "The accuracy of Word List classifier with training sample size 50 is 0.49231868524473027\n",
+            "The accuracy of Naive Bayes classifier with training sample size 50 is 0.6780993211861379\n",
+            "The accuracy of Word List classifier with training sample size 500 is 0.4976777420507324\n",
+            "The accuracy of Naive Bayes classifier with training sample size 500 is 0.872454448017149\n",
+            "The accuracy of Word List classifier with training sample size 500 is 0.4976777420507324\n",
+            "The accuracy of Naive Bayes classifier with training sample size 500 is 0.872454448017149\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "[[1, 0.4841014648088603, 0.41121829224723117],\n",
+              " [1, 0.4841014648088603, 0.41121829224723117],\n",
+              " [50, 0.49231868524473027, 0.6780993211861379],\n",
+              " [50, 0.49231868524473027, 0.6780993211861379],\n",
+              " [500, 0.4976777420507324, 0.872454448017149],\n",
+              " [500, 0.4976777420507324, 0.872454448017149]]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 58
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "Fb0CIH94UjXh",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 522
+        },
+        "outputId": "f770bd9a-fc07-4a4a-c1f8-c22b3dba410b"
+      },
+      "source": [
+        "df = pd.DataFrame(results,columns=[\"Sample Size\",\"Word List Accuracy\",\"NB Accuracy\"])\n",
+        "display(df)\n",
+        "ax = df.plot(kind=\"bar\",title=\"Experimental Results\",x=\"sample size\")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>sample size</th>\n",
+              "      <th>word list accuracy</th>\n",
+              "      <th>NB accuracy</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>1</td>\n",
+              "      <td>0.484101</td>\n",
+              "      <td>0.411218</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>1</td>\n",
+              "      <td>0.484101</td>\n",
+              "      <td>0.411218</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>50</td>\n",
+              "      <td>0.492319</td>\n",
+              "      <td>0.678099</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>50</td>\n",
+              "      <td>0.492319</td>\n",
+              "      <td>0.678099</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>500</td>\n",
+              "      <td>0.497678</td>\n",
+              "      <td>0.872454</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>5</th>\n",
+              "      <td>500</td>\n",
+              "      <td>0.497678</td>\n",
+              "      <td>0.872454</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   sample size  word list accuracy  NB accuracy\n",
+              "0            1            0.484101     0.411218\n",
+              "1            1            0.484101     0.411218\n",
+              "2           50            0.492319     0.678099\n",
+              "3           50            0.492319     0.678099\n",
+              "4          500            0.497678     0.872454\n",
+              "5          500            0.497678     0.872454"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "image/png": "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7LEtOqe7YcOGrF37xc3e8/eR37dVq1ZxwQUX8MgjjzBr1iwGDhxY4/EGDBjA6NGjueeee/j+97+/2bWZWe040KuoqKhg+PDh9OnTh4qKCkaMGEHXrl2RRM+ePXnuued4//33+fzzz3nggQc4/PDDN9hHr169eO6551iyZAlr1qzh4YcfrvXx165dy4IFC+jbty/XX389y5YtY8WKFeyyyy4sX7682m2WLVvGnnvuCVA5vQFw9NFHc8cdd1S+IXzwwQfsv//+/P3vf2fKlCkALF++nM8++4yysjKmT59eefyXXnqp2mOtC+9WrVqxYsUKHnnkEQB22WUX2rZtWzkF9emnn/Lxxx8DcNZZZ3HTTTcB0LFjx1q/Fma2eUr6b99inGZYUVHBddddR+/evWnatClNmjSpnLNu06YNw4YNo2/fvkQExx13HCeccMIG+2jTpg1Dhw6ld+/etGjRgoMOOqjWx//8888544wzWLZsGRHBRRddRIsWLTj++OP53ve+x6OPPsqtt9663jz6pZdeyplnnsnPf/7z9eanzz33XN544w06d+5Mo0aNGDhwIEOGDOGhhx7iwgsv5JNPPmGnnXZi3LhxHHroobRr146OHTvSoUMHunXrVm19LVq0YODAgZSXl/PlL3+5cuoG4P777+e8887jqquuolGjRjz88MN89atfZY899qBDhw585zvfqfXrYGabr2j3FO3evXtUvcHFa6+9VuPUhtU/H3/8MZ06dWLatGk0b179KV7+3SeshE7r2ybquH+SXo6I7tWt85SLbVPjxo2jQ4cOXHjhhRsNczMrjJKecrH6r1+/frzzzkbvmGVmBeQRuplZIhzoZmaJcKCbmSXCgW5mlohafSgq6RjgZqAB8OuIGFZl/d7AvUCLrM3lEfHkVle3pacDbXR/NZ8mJIkf//jH/PKXvwRg+PDhrFixgqFDhzJ06FDuvPNOWrduzapVq+jbty+33347O+zg90UzK74ak0hSA+B24FigI3C6pKpf97sSGBMRXYHTgF8VutC6suOOO/K73/2O999/v9r16y6QNWfOHGbNmsVzzz1XxxV+ISLW+7q+mW3fajO07AnMi4i3ImI18CBQ9euRAeyaPW4OvFu4EutWw4YNGTRoEDfeeOMm261evZpVq1bRsmXLDdY99thj9OrVi65du9KvXz/ee+89AFasWMHZ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\n",
+            "text/plain": [
+              "<Figure size 432x288 with 1 Axes>"
+            ]
+          },
+          "metadata": {
+            "tags": [],
+            "needs_background": "light"
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "X2yMamcZW2zS",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 368
+        },
+        "outputId": "4b7d4d62-d9cf-4ecc-ed1c-a9d69f43aaa4"
+      },
+      "source": [
+        "sample_sizes=[1,50,500]\n",
+        "number_of_runs=2\n",
+        "\n",
+        "results2=[]\n",
+        "\n",
+        "\n",
+        "for size in sample_sizes: #Use different sample sizes to evaluate the classifiers, for each of these sample sizes\n",
+        "  for i in range(number_of_runs): #For runs\n",
+        "    training,testing=get_training_test_data() #Get a new sample\n",
+        "    training_sample=sample(training,size) #Randomise the sample\n",
+        "    res2=[]\n",
+        "    for name,classifier in classifiers.items(): #For each classifier\n",
+        "      \n",
+        "      if name in use: #If the name in the classifier list\n",
+        "        classifier.train(training_sample) #Train classifier\n",
+        "        senti_cm=ConfusionMatrix(classifier.batch_classify(docs),labels) #Create a confusion matrix for the current classifier\n",
+        "        precision2 = senti_cm.precision()\n",
+        "        print(\"The precision of {} classifier is {}\".format(name,precision2)) #Calculate the precision of the classifier\n",
+        "        res2.append(precision2) #Add the prescision to list of results\n",
+        "    results2.append([size]+res2) #Add the result along with the sample size for each results to final results\n",
+        "\n",
+        "    \n",
+        "results2"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "The precision of Word List classifier is 0.5739130434782609\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "error",
+          "ename": "ZeroDivisionError",
+          "evalue": "ignored",
+          "traceback": [
+            "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+            "\u001b[0;31mZeroDivisionError\u001b[0m                         Traceback (most recent call last)",
+            "\u001b[0;32m<ipython-input-60-1aec1b52c3ce>\u001b[0m in \u001b[0;36m<module>\u001b[0;34m()\u001b[0m\n\u001b[1;32m     15\u001b[0m         \u001b[0mclassifier\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mtrain\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mtraining_sample\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;31m#Train classifier\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     16\u001b[0m         \u001b[0msenti_cm\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mConfusionMatrix\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mclassifier\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mbatch_classify\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mdocs\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0mlabels\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;31m#Create a confusion matrix for the current classifier\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m---> 17\u001b[0;31m         \u001b[0mprecision2\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0msenti_cm\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mprecision\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m     18\u001b[0m         \u001b[0mprint\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m\"The precision of {} classifier is {}\"\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mformat\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mname\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0mprecision2\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;31m#Calculate the precision of the classifier\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     19\u001b[0m         \u001b[0mres2\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mappend\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mprecision2\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;31m#Add the prescision to list of results\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m<ipython-input-13-46b68a603ab7>\u001b[0m in \u001b[0;36mprecision\u001b[0;34m(self)\u001b[0m\n\u001b[1;32m     33\u001b[0m   \u001b[0;32mdef\u001b[0m \u001b[0mprecision\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mself\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     34\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m---> 35\u001b[0;31m     \u001b[0mp\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mTP\u001b[0m \u001b[0;34m/\u001b[0m \u001b[0;34m(\u001b[0m\u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mTP\u001b[0m \u001b[0;34m+\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mFP\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m     36\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     37\u001b[0m     \u001b[0;32mreturn\u001b[0m \u001b[0mp\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;31mZeroDivisionError\u001b[0m: division by zero"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "8JPxfBdJNEJx"
+      },
+      "source": [
+        ""
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "34rdlS_iPov6"
+      },
+      "source": [
+        "##This code will word count all of the markdown cells in the notebook saved at filepath\n",
+        "##Running it before providing any answers shows that the questions have a word count of 388\n",
+        "\n",
+        "import io\n",
+        "from nbformat import current\n",
+        "\n",
+        "filepath=\"/content/drive/My Drive/Colab Notebooks/NLEassignment1.ipynb\"\n",
+        "question_count=388\n",
+        "\n",
+        "with io.open(filepath, 'r', encoding='utf-8') as f:\n",
+        "    nb = current.read(f, 'json')\n",
+        "\n",
+        "word_count = 0\n",
+        "for cell in nb.worksheets[0].cells:\n",
+        "    if cell.cell_type == \"markdown\":\n",
+        "        word_count += len(cell['source'].replace('#', '').lstrip().split(' '))\n",
+        "print(\"Submission length is {}\".format(word_count-question_count))"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "PtqCcG6wPsmf"
+      },
+      "source": [
+        ""
+      ],
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
